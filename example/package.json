@@ -1,0 +1,11 @@
+{
+  "name": "@stack8/example",
+  "private": true,
+  "version": "0.0.1",
+  "main": "dist/index.js",
+  "author": "PERSOL HOLDINGS CO., LTD.",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@pulumi/pulumi": "3.94.2"
+  }
+}

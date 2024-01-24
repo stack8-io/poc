@@ -1,0 +1,8 @@
+{
+  "extends": "@tsconfig/node-lts/tsconfig.json",
+  "compilerOptions": {
+    "incremental": true,
+    "sourceMap": true,
+    "composite": true
+  }
+}

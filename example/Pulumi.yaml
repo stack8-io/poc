@@ -1,0 +1,5 @@
+name: stack8
+runtime:
+  name: nodejs
+  options:
+    typescript: false
