@@ -4,6 +4,7 @@ import { AWSCDN } from "./cdn"
 import { AWSCluster } from "./cluster"
 import { AWSDatabase } from "./database"
 import { AWSDNS } from "./dns"
+import { AWSIdP } from "./idp"
 import { AWSNetwork } from "./network"
 
 export type Stack8AWSArgs = AWSArgs
@@ -15,6 +16,7 @@ export class Stack8AWS extends pulumi.ComponentResource {
   public network: AWSNetwork
   public cluster: AWSCluster
   public database: AWSDatabase
+  public idp: AWSIdP
 
   constructor(
     name: string,
@@ -64,6 +66,14 @@ export class Stack8AWS extends pulumi.ComponentResource {
         ...args,
         subnetIds: protectedSubnetIds,
         securityGroupId: this.network.protectedSecurityGroup.id,
+      },
+      this.opts,
+    )
+
+    this.idp = new AWSIdP(
+      "idp",
+      {
+        ...args,
       },
       this.opts,
     )

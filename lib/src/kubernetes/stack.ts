@@ -1,12 +1,14 @@
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import { Stack8AWS } from "../aws/stack"
+import { AWSArgs } from "../schema"
 import { KubernetesAWS } from "./aws/stack"
 import { KuberneteCilium } from "./cilium"
+import { KuberneteContainerSSH } from "./containerSsh"
 import { KuberneteExternalDNS } from "./externalDns"
 import { KuberneteGatewayApi } from "./gatewayApi"
 
-export type Stack8KubernetesArgs = {
+export type Stack8KubernetesArgs = AWSArgs & {
   aws: Stack8AWS
   k8sProvider: k8s.Provider
 }
@@ -18,6 +20,7 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
   public gatewayApi: KuberneteGatewayApi
   public externalDns: KuberneteExternalDNS
   public cilium: KuberneteCilium
+  public containerSsh: KuberneteContainerSSH
 
   constructor(
     name: string,
@@ -44,6 +47,19 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
       this.k8sOpts,
     )
 
+    this.containerSsh = new KuberneteContainerSSH(
+      "containerssh",
+      {
+        bastionOAuthRedirectDomain: args.bastionOAuthRedirectDomain,
+        oauth: {
+          issuer: args.aws.idp.issuer,
+          clientId: args.aws.idp.bastionClient.id,
+          clientSecret: args.aws.idp.bastionClient.clientSecret,
+        },
+      },
+      this.k8sOpts,
+    )
+
     this.externalDns = new KuberneteExternalDNS(
       "external-dns",
       {
@@ -57,7 +73,7 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
 
     this.aws = new KubernetesAWS("aws", args, {
       ...this.opts,
-      dependsOn: [this.cilium],
+      dependsOn: [this.cilium, this.containerSsh],
     })
   }
 }

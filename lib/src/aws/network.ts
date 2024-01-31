@@ -26,6 +26,7 @@ export class AWSNetwork extends pulumi.ComponentResource {
   public internetGateway: aws.ec2.InternetGateway
   public loadBalancer: aws.lb.LoadBalancer
   public loadBalancerTargetGroup: aws.lb.TargetGroup
+  public loadBalancerSSHTargetGroup: aws.lb.TargetGroup
   public publicSecurityGroup: aws.ec2.SecurityGroup
   public privateSecurityGroup: aws.ec2.SecurityGroup
   public protectedSecurityGroup: aws.ec2.SecurityGroup
@@ -81,6 +82,7 @@ export class AWSNetwork extends pulumi.ComponentResource {
     this.internetGateway = publicResources.igw
     this.loadBalancer = publicResources.nlb
     this.loadBalancerTargetGroup = publicResources.tg
+    this.loadBalancerSSHTargetGroup = publicResources.sshTg
     this.natGateways = publicResources.natGateways
     this.privateSubnets = privateResources.subnets
     this.egressOnlyInternetGateway = privateResources.egressOnlyInternetGateway
@@ -177,6 +179,13 @@ function createPublicSubnetResources(
           cidrBlocks: ["0.0.0.0/0"],
           ipv6CidrBlocks: ["::/0"],
         },
+        {
+          fromPort: 22,
+          toPort: 22,
+          protocol: "tcp",
+          // TODO: change to nat gateway ip
+          cidrBlocks: ["106.72.211.193/32"],
+        },
       ],
       egress: [
         {
@@ -213,7 +222,7 @@ function createPublicSubnetResources(
     },
     opts,
   )
-  const listener = new aws.lb.Listener(
+  const httpsListener = new aws.lb.Listener(
     "https-listner",
     {
       loadBalancerArn: nlb.arn,
@@ -225,6 +234,40 @@ function createPublicSubnetResources(
         {
           type: "forward",
           targetGroupArn: tg.arn,
+        },
+      ],
+    },
+    opts,
+  )
+  const sshTg = new aws.lb.TargetGroup(
+    "ssh-target-group",
+    {
+      vpcId: vpc.id,
+      targetType: "instance",
+      protocol: "TCP",
+      port: 2222,
+      // TODO: It is necessary to specify the port for the health check.
+      // By default, it goes to the NodePort of the Service for ContainerSSH for a health check, but that would cause a lot of logging on the ContainerSSH side.
+      // Since there seems to be no way to specify the NodePort of Service for GatewayAPI of Cilium, it seems to be good to prepare a stub NodePort only for health check.
+      healthCheck: {
+        protocol: "TCP",
+        interval: 300,
+        healthyThreshold: 2,
+        unhealthyThreshold: 2,
+      },
+    },
+    opts,
+  )
+  const sshListener = new aws.lb.Listener(
+    "ssh-listner",
+    {
+      loadBalancerArn: nlb.arn,
+      protocol: "TCP",
+      port: 22,
+      defaultActions: [
+        {
+          type: "forward",
+          targetGroupArn: sshTg.arn,
         },
       ],
     },
@@ -246,7 +289,18 @@ function createPublicSubnetResources(
     },
     opts,
   )
-  return { subnets, igw, natGateways, nlb, sg, tg, listener, record }
+  return {
+    subnets,
+    igw,
+    natGateways,
+    nlb,
+    sg,
+    tg,
+    httpsListener,
+    sshTg,
+    sshListener,
+    record,
+  }
 }
 
 function createPrivateSubnetResources(
