@@ -41,6 +41,7 @@ export class Stack8 extends pulumi.ComponentResource {
     this.kubernetes = new Stack8Kubernetes(
       "kubernetes",
       {
+        ...args.aws,
         aws: this.aws,
         k8sProvider: this.k8sProvider,
       },

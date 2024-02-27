@@ -5,8 +5,20 @@ import * as pulumi from "@pulumi/pulumi"
 import { Stack8AWS } from "../../aws/stack"
 import { getResourceTags } from "../../util"
 
+// export type TargetGroupBindingArgs = {
+//   name: string
+//   serviceRef: {
+//     namespace: pulumi.Input<string>
+//     name: pulumi.Input<string>
+//     port: pulumi.Input<number>
+//   }
+//   targetGroupARN: pulumi.Input<string>
+// }
+
 export type KubernetesAWSLoadBalancerControllerArgs = {
   aws: Stack8AWS
+  // FXIME: TargetGroupBindings values should be passed as arguments because of dependencies
+  // targetGroupBindings: TargetGroupBindingArgs[]
   k8sProvider: k8s.Provider
 }
 
@@ -15,6 +27,7 @@ export class KubernetesAWSLoadBalancerController extends pulumi.ComponentResourc
   public k8sOpts: pulumi.ResourceOptions
   public release: k8s.helm.v3.Release
   public targetGroupBinding: k8s.apiextensions.CustomResource
+  public sshTargetGroupBinding: k8s.apiextensions.CustomResource
 
   constructor(
     name: string,
@@ -160,6 +173,32 @@ export class KubernetesAWSLoadBalancerController extends pulumi.ComponentResourc
             port: 80,
           },
           targetGroupARN: args.aws.network.loadBalancerTargetGroup.arn,
+          targetType: "instance",
+        },
+      },
+      {
+        ...this.k8sOpts,
+        dependsOn: [this.release],
+        deleteBeforeReplace: true,
+        replaceOnChanges: ["spec.targetGroupARN", "spec.targetType"],
+      },
+    )
+
+    this.sshTargetGroupBinding = new k8s.apiextensions.CustomResource(
+      "ssh-target-group-binding",
+      {
+        apiVersion: "elbv2.k8s.aws/v1beta1",
+        kind: "TargetGroupBinding",
+        metadata: {
+          namespace: "containerssh",
+          name: "containerssh",
+        },
+        spec: {
+          serviceRef: {
+            name: "containerssh",
+            port: 2222,
+          },
+          targetGroupARN: args.aws.network.loadBalancerSSHTargetGroup.arn,
           targetType: "instance",
         },
       },
