@@ -38,13 +38,7 @@ describe("getHostZoneInfo", () => {
       hostZoneNames: new Set<string>(["a.com", "b.com", "x.c.com"]),
     })
 
-    expect(
-      getHostZoneInfo([
-        "a.com",
-        "*.a.com",
-        "lb.a.com",
-      ]),
-    ).toEqual({
+    expect(getHostZoneInfo(["a.com", "*.a.com", "lb.a.com"])).toEqual({
       domainHostZoneMap: new Map<string, string>([]),
       hostZoneNames: new Set<string>([]),
     })
