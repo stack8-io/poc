@@ -21,6 +21,7 @@ export const AWSArgsSchema = z.object({
   databasePassword: z.string(),
   bastionOAuthRedirectDomain: z.string(),
   gitlabDomain: z.string(),
+  oneDevDomain: z.string(),
 })
 
 export type AWSArgs = z.infer<typeof AWSArgsSchema>
