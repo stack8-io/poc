@@ -1,3 +1,4 @@
+import * as aws from "@pulumi/aws"
 import * as pulumi from "@pulumi/pulumi"
 import * as ipaddr from "ipaddr.js"
 import * as R from "remeda"
@@ -94,4 +95,20 @@ export function getHostZoneInfo(domains: string[]) {
     },
     { hostZoneNames: new Set(), domainHostZoneMap: new Map() },
   )
+}
+
+export function getAssumeRoleForEKSPodIdentity(): aws.iam.PolicyDocument {
+  return {
+    Version: "2012-10-17",
+    Statement: [
+      {
+        Sid: "AllowEksAuthToAssumeRoleForPodIdentity",
+        Effect: "Allow",
+        Principal: {
+          Service: "pods.eks.amazonaws.com",
+        },
+        Action: ["sts:AssumeRole", "sts:TagSession"],
+      },
+    ],
+  }
 }

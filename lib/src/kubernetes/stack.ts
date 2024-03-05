@@ -7,6 +7,8 @@ import { KuberneteCilium } from "./cilium"
 import { KuberneteContainerSSH } from "./containerSsh"
 import { KuberneteExternalDNS } from "./externalDns"
 import { KuberneteGatewayApi } from "./gatewayApi"
+import { KubernetesGitlab } from "./gitlab"
+import { KubernetesMetricsServer } from "./metricsServer"
 
 export type Stack8KubernetesArgs = AWSArgs & {
   aws: Stack8AWS
@@ -17,10 +19,12 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
   public opts: pulumi.ResourceOptions
   public k8sOpts: pulumi.ResourceOptions
   public aws: KubernetesAWS
+  public metricsServer: KubernetesMetricsServer
   public gatewayApi: KuberneteGatewayApi
   public externalDns: KuberneteExternalDNS
   public cilium: KuberneteCilium
   public containerSsh: KuberneteContainerSSH
+  public gitlab: KubernetesGitlab
 
   constructor(
     name: string,
@@ -31,6 +35,12 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
 
     this.opts = { ...opts, parent: this }
     this.k8sOpts = { ...this.opts, provider: args.k8sProvider }
+
+    this.metricsServer = new KubernetesMetricsServer(
+      "metrics-server",
+      {},
+      this.k8sOpts,
+    )
 
     this.gatewayApi = new KuberneteGatewayApi("gateway-api", {}, this.k8sOpts)
 
@@ -75,5 +85,16 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
       ...this.opts,
       dependsOn: [this.cilium, this.containerSsh],
     })
+
+    this.gitlab = new KubernetesGitlab(
+      "gitlab",
+      {
+        domain: args.gitlabDomain,
+      },
+      {
+        ...this.opts,
+        dependsOn: [this.aws],
+      },
+    )
   }
 }

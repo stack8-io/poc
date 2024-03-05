@@ -2,6 +2,7 @@ import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import { Stack8AWS } from "../../aws/stack"
 import { KubernetesAWSAmazonCloudwatchObservability } from "./amazonCloudwatchObservability"
+import { KubernetesAWSAmazonEBSCSIDriver } from "./amazonEbsCsiDriver"
 import { KubernetesAWSLoadBalancerController } from "./awsLoadBalancerController"
 import { KubernetesAWSCoreDns } from "./coreDns"
 import { KubernetesAWSEKSPodIdentityAgent } from "./eksPodIdentityAgent"
@@ -16,6 +17,7 @@ export class KubernetesAWS extends pulumi.ComponentResource {
   public coreDns: KubernetesAWSCoreDns
   public awsLoadBalancerController: KubernetesAWSLoadBalancerController
   public amazonCloudwatchObservability: KubernetesAWSAmazonCloudwatchObservability
+  public amazonEBSCSIDriver: KubernetesAWSAmazonEBSCSIDriver
   public eksPodIdentityAgent: KubernetesAWSEKSPodIdentityAgent
 
   constructor(
@@ -39,6 +41,11 @@ export class KubernetesAWS extends pulumi.ComponentResource {
         { clusterName },
         this.opts,
       )
+    this.amazonEBSCSIDriver = new KubernetesAWSAmazonEBSCSIDriver(
+      "amazon-ebs-csi-driver",
+      { clusterName },
+      this.opts,
+    )
     this.eksPodIdentityAgent = new KubernetesAWSEKSPodIdentityAgent(
       "eks-pod-identity-agent",
       { clusterName },
