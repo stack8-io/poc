@@ -258,7 +258,8 @@ export class AWSCluster extends pulumi.ComponentResource {
         nodeGroupName: nodegroupTags.Name,
         clusterName: this.cluster.name,
         nodeRoleArn: nodeRole.arn,
-        instanceTypes: ["t3.medium"],
+        // instanceTypes: ["t3.medium"],
+        instanceTypes: ["t3.xlarge"],
         scalingConfig: {
           desiredSize: 2,
           maxSize: 2,
