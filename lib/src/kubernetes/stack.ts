@@ -9,6 +9,7 @@ import { KuberneteExternalDNS } from "./externalDns"
 import { KuberneteGatewayApi } from "./gatewayApi"
 import { KubernetesGitlab } from "./gitlab"
 import { KubernetesMetricsServer } from "./metricsServer"
+import { KubernetesOneDev } from "./oneDev"
 
 export type Stack8KubernetesArgs = AWSArgs & {
   aws: Stack8AWS
@@ -24,7 +25,8 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
   public externalDns: KuberneteExternalDNS
   public cilium: KuberneteCilium
   public containerSsh: KuberneteContainerSSH
-  public gitlab: KubernetesGitlab
+  public oneDev: KubernetesOneDev
+  // public gitlab: KubernetesGitlab
 
   constructor(
     name: string,
@@ -86,15 +88,26 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
       dependsOn: [this.cilium, this.containerSsh],
     })
 
-    this.gitlab = new KubernetesGitlab(
-      "gitlab",
+    this.oneDev = new KubernetesOneDev(
+      "onedev",
       {
-        domain: args.gitlabDomain,
+        domain: args.oneDevDomain,
       },
       {
         ...this.opts,
         dependsOn: [this.aws],
       },
     )
+
+    // this.gitlab = new KubernetesGitlab(
+    //   "gitlab",
+    //   {
+    //     domain: args.gitlabDomain,
+    //   },
+    //   {
+    //     ...this.opts,
+    //     dependsOn: [this.aws],
+    //   },
+    // )
   }
 }
