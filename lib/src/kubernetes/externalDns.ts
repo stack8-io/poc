@@ -2,9 +2,10 @@ import * as aws from "@pulumi/aws"
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import * as R from "remeda"
-import { getResourceTags } from "../util"
+import { getAssumeRoleForEKSPodIdentity, getResourceTags } from "../util"
 
 export type KuberneteExternalDNSArgs = {
+  clusterName: pulumi.Input<string>
   oidcProvider: aws.iam.OpenIdConnectProvider
   domainHostZoneMap: Map<string, aws.route53.Zone>
   groupNameDistributionMap: Map<string, aws.cloudfront.Distribution>
@@ -29,34 +30,6 @@ export class KuberneteExternalDNS extends pulumi.ComponentResource {
     const resourceName = "external-dns"
     const tags = getResourceTags(resourceName)
 
-    const assumeRolePolicy = pulumi
-      .all([args.oidcProvider.url, args.oidcProvider.arn])
-      .apply(([url, arn]) =>
-        aws.iam.getPolicyDocument({
-          statements: [
-            {
-              effect: "Allow",
-              actions: ["sts:AssumeRoleWithWebIdentity"],
-              conditions: [
-                {
-                  test: "StringEquals",
-                  values: [
-                    `system:serviceaccount:${namespace}:${resourceName}`,
-                  ],
-                  variable: `${url.replace("https://", "")}:sub`,
-                },
-              ],
-              principals: [
-                {
-                  identifiers: [arn],
-                  type: "Federated",
-                },
-              ],
-            },
-          ],
-        }),
-      )
-
     const hostZoneArns = Array.from(args.domainHostZoneMap.values()).map(
       x => x.arn,
     )
@@ -80,17 +53,18 @@ export class KuberneteExternalDNS extends pulumi.ComponentResource {
         ],
       }),
     )
+
     const role = new aws.iam.Role(
       "role",
       {
         name: tags.Name,
-        assumeRolePolicy: assumeRolePolicy.json,
         inlinePolicies: [
           {
             name: tags.Name,
             policy: policy.json,
           },
         ],
+        assumeRolePolicy: getAssumeRoleForEKSPodIdentity(),
         tags,
       },
       this.opts,
@@ -119,6 +93,18 @@ export class KuberneteExternalDNS extends pulumi.ComponentResource {
       },
       this.k8sOpts,
     )
+
+    const podIdentityAssociation = new aws.eks.PodIdentityAssociation(
+      "pod-identity-association",
+      {
+        clusterName: args.clusterName,
+        namespace,
+        serviceAccount: sa.metadata.name,
+        roleArn: role.arn,
+      },
+      this.opts,
+    )
+
     const clusterRole = new k8s.rbac.v1.ClusterRole(
       "cluster-role",
       {
@@ -147,6 +133,7 @@ export class KuberneteExternalDNS extends pulumi.ComponentResource {
       },
       this.k8sOpts,
     )
+
     const clusterRoleBinding = new k8s.rbac.v1.ClusterRoleBinding(
       "cluster-role-binding",
       {
