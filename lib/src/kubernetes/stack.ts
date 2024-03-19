@@ -12,6 +12,7 @@ import { KuberneteGatewayApi } from "./gatewayApi"
 import { KubernetesGitlab } from "./gitlab"
 import { KubernetesMetricsServer } from "./metricsServer"
 import { KubernetesOneDev } from "./oneDev"
+import { KubernetesOutline } from "./outline"
 import { KubernetesPostgresOperator } from "./postgresOperator"
 
 export type Stack8KubernetesArgs = AWSArgs & {
@@ -32,6 +33,7 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
   public containerSsh: KuberneteContainerSSH
   public dragonfly: KubernetesDragonfly
   public oneDev: KubernetesOneDev
+  public outline: KubernetesOutline
   // public gitlab: KubernetesGitlab
 
   constructor(
@@ -81,6 +83,7 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
     this.externalDns = new KuberneteExternalDNS(
       "external-dns",
       {
+        clusterName: args.aws.cluster.cluster.name,
         domainHostZoneMap: args.aws.dns.domainHostZoneMap,
         groupNameDistributionMap: args.aws.cdn.groupNameDistributionMap,
         oidcProvider: args.aws.cluster.oidcProvider,
@@ -121,6 +124,34 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
       {
         ...this.opts,
         dependsOn: [this.aws],
+      },
+    )
+
+    this.outline = new KubernetesOutline(
+      "outline",
+      {
+        k8sProvider: args.k8sProvider,
+        domain: args.outlineDomain,
+        oidc: {
+          clinetId: args.aws.idp.outlineClient.id,
+          clientSecret: args.aws.idp.outlineClient.clientSecret,
+          authUri: args.aws.idp.authEndpoint,
+          tokenUri: args.aws.idp.tokenEndpoint,
+          userinfoUri: args.aws.idp.userinfoEndpoint,
+          logoutUri: args.aws.idp.getLogountEndpoint(
+            args.aws.idp.outlineClient.id,
+          ),
+        },
+      },
+      {
+        ...this.opts,
+        dependsOn: [
+          this.aws,
+          this.cilium,
+          this.externalSecrets,
+          this.postgresqlOperator,
+          this.dragonfly,
+        ],
       },
     )
 
