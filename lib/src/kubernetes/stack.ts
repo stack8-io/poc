@@ -5,11 +5,15 @@ import { AWSArgs } from "../schema"
 import { KubernetesAWS } from "./aws/stack"
 import { KuberneteCilium } from "./cilium"
 import { KuberneteContainerSSH } from "./containerSsh"
+import { KubernetesDragonfly } from "./dragonfly"
 import { KuberneteExternalDNS } from "./externalDns"
+import { KubernetesExternalSecrets } from "./externalSecrets"
 import { KuberneteGatewayApi } from "./gatewayApi"
 import { KubernetesGitlab } from "./gitlab"
 import { KubernetesMetricsServer } from "./metricsServer"
 import { KubernetesOneDev } from "./oneDev"
+import { KubernetesOutline } from "./outline"
+import { KubernetesPostgresOperator } from "./postgresOperator"
 
 export type Stack8KubernetesArgs = AWSArgs & {
   aws: Stack8AWS
@@ -23,9 +27,13 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
   public metricsServer: KubernetesMetricsServer
   public gatewayApi: KuberneteGatewayApi
   public externalDns: KuberneteExternalDNS
+  public externalSecrets: KubernetesExternalSecrets
+  public postgresqlOperator: KubernetesPostgresOperator
   public cilium: KuberneteCilium
   public containerSsh: KuberneteContainerSSH
+  public dragonfly: KubernetesDragonfly
   public oneDev: KubernetesOneDev
+  public outline: KubernetesOutline
   // public gitlab: KubernetesGitlab
 
   constructor(
@@ -75,6 +83,7 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
     this.externalDns = new KuberneteExternalDNS(
       "external-dns",
       {
+        clusterName: args.aws.cluster.cluster.name,
         domainHostZoneMap: args.aws.dns.domainHostZoneMap,
         groupNameDistributionMap: args.aws.cdn.groupNameDistributionMap,
         oidcProvider: args.aws.cluster.oidcProvider,
@@ -83,10 +92,29 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
       this.opts,
     )
 
+    this.externalSecrets = new KubernetesExternalSecrets(
+      "external-secrets",
+      {},
+      this.k8sOpts,
+    )
+
+    this.postgresqlOperator = new KubernetesPostgresOperator(
+      "postgres-operator",
+      {
+        user: args.aws.database.cluster.masterUsername,
+        password: args.databasePassword,
+        host: args.aws.database.cluster.endpoint,
+        defaultDatabase: args.aws.database.cluster.databaseName,
+      },
+      this.k8sOpts,
+    )
+
     this.aws = new KubernetesAWS("aws", args, {
       ...this.opts,
       dependsOn: [this.cilium, this.containerSsh],
     })
+
+    this.dragonfly = new KubernetesDragonfly("dragonfly", {}, this.k8sOpts)
 
     this.oneDev = new KubernetesOneDev(
       "onedev",
@@ -96,6 +124,34 @@ export class Stack8Kubernetes extends pulumi.ComponentResource {
       {
         ...this.opts,
         dependsOn: [this.aws],
+      },
+    )
+
+    this.outline = new KubernetesOutline(
+      "outline",
+      {
+        k8sProvider: args.k8sProvider,
+        domain: args.outlineDomain,
+        oidc: {
+          clinetId: args.aws.idp.outlineClient.id,
+          clientSecret: args.aws.idp.outlineClient.clientSecret,
+          authUri: args.aws.idp.authEndpoint,
+          tokenUri: args.aws.idp.tokenEndpoint,
+          userinfoUri: args.aws.idp.userinfoEndpoint,
+          logoutUri: args.aws.idp.getLogountEndpoint(
+            args.aws.idp.outlineClient.id,
+          ),
+        },
+      },
+      {
+        ...this.opts,
+        dependsOn: [
+          this.aws,
+          this.cilium,
+          this.externalSecrets,
+          this.postgresqlOperator,
+          this.dragonfly,
+        ],
       },
     )
 
